@@ -72,7 +72,6 @@ def train(device, writer, model, embedder, optimizer, scheduler,
                 sample_image(model, embedder, opt.output_dir, n_row=opt.samples_n_row,
                              batches_done=batches_done,
                              dataloader=val_loader, device=device)
-            break
         val_bpd = eval(device, model, embedder, val_loader)
         writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
 
