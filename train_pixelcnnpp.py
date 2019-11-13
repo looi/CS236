@@ -34,9 +34,10 @@ parser.add_argument("--print_every", type=int, default=10)
 parser.add_argument("--dataset", type=str, default="birds", choices=["birds"])
 parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "bert"])
 parser.add_argument("--imsize", type=int, default=64, help="Image size in pixels")
+parser.add_argument("--samples_n_row", type=int, default=4, help="Number of rows for samples")
 
 
-def train(model, embedder, optimizer, scheduler,
+def train(device, writer, model, embedder, optimizer, scheduler,
           train_loader, val_loader, opt):
     print("TRAINING STARTS")
     for epoch in range(opt.n_epochs):
@@ -70,7 +71,7 @@ def train(model, embedder, optimizer, scheduler,
             if (batches_done + 1) % opt.sample_interval == 0:
                 print("sampling_images")
                 model = model.eval()
-                sample_image(model, embedder, opt.output_dir, n_row=4,
+                sample_image(model, embedder, opt.output_dir, n_row=opt.samples_n_row,
                              batches_done=batches_done,
                              dataloader=val_loader, device=device)
         val_bpd = eval(model, embedder, val_loader)
@@ -100,8 +101,8 @@ def eval(model, embedder, test_loader):
     return bpd
 
 
-if __name__ == "__main__":
-    opt = parser.parse_args()
+def main(args=None):
+    opt = parser.parse_args(args)
     print(opt)
 
     print("loading dataset")
@@ -161,7 +162,7 @@ if __name__ == "__main__":
     #  Training
     # ----------
     if opt.train:
-        train(model=generative_model, embedder=encoder, optimizer=optimizer, scheduler=scheduler,
+        train(device=device, writer=writer, model=generative_model, embedder=encoder, optimizer=optimizer, scheduler=scheduler,
               train_loader=train_dataloader, val_loader=val_dataloader, opt=opt)
     else:
         assert opt.model_checkpoint is not None, 'no model checkpoint specified'
@@ -169,3 +170,6 @@ if __name__ == "__main__":
         load_model(opt.model_checkpoint, generative_model)
         print("Model loaded.")
         eval(model=generative_model, embedder=encoder, test_loader=val_dataloader)
+
+if __name__ == "__main__":
+    main()
