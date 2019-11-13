@@ -17,10 +17,9 @@ def sample_image(model, encoder, output_image_dir, n_row, batches_done, dataload
     done = False
     while not done:
         for (imgs, caps, cls_ids, keys) in dataloader:
-            captions += ['caption']*imgs.shape[0]
-            #captions += captions_batch
-            #conditional_embeddings = encoder(labels_batch.to(device), captions)
-            conditional_embeddings = torch.zeros(imgs.shape[0], 1, device=device)
+            captions += caps
+            conditional_embeddings = encoder(captions)
+            #conditional_embeddings = torch.zeros(imgs.shape[0], 1, device=device)
             imgs = model.sample(conditional_embeddings).cpu()
             gen_imgs.append(imgs)
 

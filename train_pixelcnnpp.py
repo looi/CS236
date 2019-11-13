@@ -1,7 +1,7 @@
 import argparse
 import os
 import datasets
-from models.embedders import BERTEncoder, OneHotClassEmbedding, UnconditionalClassEmbedding
+from models.embedders import BERTEncoder, InferSentEmbedding, UnconditionalClassEmbedding
 import torch
 from models.pixelcnnpp import ConditionalPixelCNNpp
 from utils.utils import sample_image, load_model
@@ -32,7 +32,7 @@ parser.add_argument("--model_checkpoint", type=str, default=None,
                     help="load model from checkpoint, model_checkpoint = path_to_your_pixel_cnn_model.pt")
 parser.add_argument("--print_every", type=int, default=10)
 parser.add_argument("--dataset", type=str, default="birds", choices=["birds"])
-parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "bert"])
+parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "infersent", "bert"])
 parser.add_argument("--imsize", type=int, default=64, help="Image size in pixels")
 parser.add_argument("--samples_n_row", type=int, default=4, help="Number of rows for samples")
 
@@ -46,11 +46,9 @@ def train(device, writer, model, embedder, optimizer, scheduler,
         for i, (imgs, captions, cls_ids, keys) in enumerate(train_loader):
             start_batch = time.time()
             imgs = imgs.to(device)
-            #labels = labels.to(device)
 
             with torch.no_grad():
-                #condition_embd = embedder(labels, captions)
-                condition_embd = embedder(imgs, captions)
+                condition_embd = embedder(captions)
 
             optimizer.zero_grad()
             outputs = model.forward(imgs, condition_embd)
@@ -74,7 +72,8 @@ def train(device, writer, model, embedder, optimizer, scheduler,
                 sample_image(model, embedder, opt.output_dir, n_row=opt.samples_n_row,
                              batches_done=batches_done,
                              dataloader=val_loader, device=device)
-        val_bpd = eval(model, embedder, val_loader)
+            break
+        val_bpd = eval(device, model, embedder, val_loader)
         writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
 
         torch.save(model.state_dict(),
@@ -83,16 +82,15 @@ def train(device, writer, model, embedder, optimizer, scheduler,
     scheduler.step()
 
 
-def eval(model, embedder, test_loader):
+def eval(device, model, embedder, test_loader):
     print("EVALUATING ON VAL")
     model = model.eval()
     bpd = 0.0
-    for i, (imgs, caps, cls_ids, keys) in tqdm(enumerate(test_loader)):
+    for i, (imgs, captions, cls_ids, keys) in tqdm(enumerate(test_loader)):
         imgs = imgs.to(device)
-        labels = labels.to(device)
 
         with torch.no_grad():
-            condition_embd = embedder(labels, captions)
+            condition_embd = embedder(captions)
             outputs = model.forward(imgs, condition_embd)
             loss = outputs['loss'].mean()
             bpd += loss / np.log(2)
@@ -131,12 +129,12 @@ def main(args=None):
 
     # Initialize embedder
     if opt.conditioning == 'unconditional':
-        encoder = UnconditionalClassEmbedding()
+        encoder = UnconditionalClassEmbedding(device)
     elif opt.conditioning == "bert":
-        encoder = BERTEncoder()
+        encoder = BERTEncoder(device)
     else:
-        assert opt.conditioning == "one-hot"
-        encoder = OneHotClassEmbedding(train_dataset.n_classes)
+        assert opt.conditioning == "infersent"
+        encoder = InferSentEmbedding(device)
 
     generative_model = ConditionalPixelCNNpp(embd_size=encoder.embed_size, img_shape=(3, opt.imsize, opt.imsize),
                                              nr_resnet=opt.n_resnet, nr_filters=opt.n_filters,
@@ -169,7 +167,7 @@ def main(args=None):
         print("Loading model from state dict...")
         load_model(opt.model_checkpoint, generative_model)
         print("Model loaded.")
-        eval(model=generative_model, embedder=encoder, test_loader=val_dataloader)
+        eval(device=device, model=generative_model, embedder=encoder, test_loader=val_dataloader)
 
 if __name__ == "__main__":
     main()
