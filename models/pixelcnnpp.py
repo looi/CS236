@@ -61,7 +61,6 @@ class ConditionalPixelCNNpp(ConditionedGenerativeModel):
                     out = self.pixel_cnn_model(data, captions_embd, sample=True)
                     out_sample = self.sample_operation(out, self.pixel_cnn_model.nr_logistic_mix)
                     data[:, :, i, j] = out_sample[:, :, i, j]
-        data = (data + 1) / 2
         return data
 
 

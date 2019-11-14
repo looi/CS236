@@ -1,11 +1,10 @@
-from transformers import *
-
 from utils.pixelcnnpp_utils import *
 import pdb
 from torch.nn.utils import weight_norm as wn
 from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from models.infersent import InferSent
+import os.path
 
 
 class Embedder(nn.Module):
@@ -67,10 +66,10 @@ class InferSentEmbedding(Embedder):
     pretrained model from Facebook to embed text to a 4096 dimensional vector
     '''
 
-    def __init__(self, device):
+    def __init__(self, device, infersent_path):
         super(InferSentEmbedding, self).__init__(embed_size=4096)
         model_version = 2
-        MODEL_PATH = "encoder/infersent%s.pkl" % model_version
+        MODEL_PATH = os.path.join(infersent_path, "infersent%s.pkl" % model_version)
         params_model = {'bsize': 64, 'word_emb_dim': 300, 'enc_lstm_dim': 2048,
                         'pool_type': 'max', 'dpout_model': 0.0, 'version': model_version}
         self.device = device
