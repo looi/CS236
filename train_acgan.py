@@ -16,9 +16,10 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
-from utils.utils import weights_init, compute_acc
+from utils.utils import weights_init, compute_acc, save_image_grid
 from models.acgan import _netG, _netD, _netD_CIFAR10, _netG_CIFAR10
 from models.embedders import BERTEncoder, InferSentEmbedding, UnconditionalClassEmbedding
+from mpl_toolkits.axes_grid1 import ImageGrid
 import datasets
 
 parser = argparse.ArgumentParser()
@@ -26,10 +27,10 @@ parser.add_argument("--dataset", type=str, default="birds", choices=["birds"])
 parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "infersent", "bert"])
 parser.add_argument("--batch_size", type=int, default=100, help="size of the batches")
 parser.add_argument("--imsize", type=int, default=32, help="Image size in pixels")
-parser.add_argument('--nz', type=int, default=200, help='size of the latent z vector')
+parser.add_argument('--nz', type=int, default=200, help='size of the latent z vector (must be larger than embed_size)')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--niter', type=int, default=500, help='number of epochs to train for')
+parser.add_argument('--niter', type=int, default=1000, help='number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument("--use_cuda", type=int, default=1, help="use cuda if available")
@@ -38,8 +39,8 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='outputs/acgan', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
-parser.add_argument('--embed_size', default=100, type=int, help='embed size')
-parser.add_argument('--num_classes', type=int, default=10, help='Number of classes for AC-GAN')
+parser.add_argument('--embed_size', default=100, type=int, help='embed size (eg 4096 for infersent)')
+parser.add_argument('--num_classes', type=int, default=200, help='Number of classes for AC-GAN')
 parser.add_argument('--gpu_id', type=int, default=0, help='The ID of the specified GPU')
 parser.add_argument("--infersent_path", type=str, default='encoder', help="Path to pre-trained InferSent model")
 
@@ -143,7 +144,7 @@ def main(args=None):
     aux_label = Variable(aux_label)
 
     if opt.conditioning == 'unconditional':
-        encoder = UnconditionalClassEmbedding(device)
+        encoder = None
     elif opt.conditioning == "bert":
         encoder = BERTEncoder(device)
     else:
@@ -152,7 +153,8 @@ def main(args=None):
 
     # noise for evaluation
     eval_noise_ = np.random.normal(0, 1, (opt.batch_size, nz))
-    eval_label = np.zeros(opt.batch_size)#np.random.randint(0, num_classes, opt.batch_size)
+    #eval_label = np.zeros(opt.batch_size)
+    eval_label = np.random.randint(0, num_classes, opt.batch_size)
     #if opt.dataset == 'cifar10':
     #            captions = [cifar_text_labels[per_label] for per_label in eval_label]
     #            embedding = encoder(eval_label, captions)
@@ -178,8 +180,9 @@ def main(args=None):
             real_cpu = imgs
             batch_size = real_cpu.size(0)
             # Dummy label for now
-            label = torch.zeros(batch_size)
-            label[0] = 1
+            #label = torch.zeros(batch_size)
+            #label[0] = 1
+            label = cls_ids
             if use_cuda:
                 real_cpu = real_cpu.cuda()
             with torch.no_grad():
@@ -208,6 +211,12 @@ def main(args=None):
             noise_ = np.random.normal(0, 1, (batch_size, nz))
             
             #noise_[np.arange(batch_size), :opt.embed_size] = embedding[:, :opt.embed_size]
+
+            if encoder is not None:
+                embedding = encoder(captions)
+                embedding = embedding.detach().cpu().numpy()
+                noise_[np.arange(batch_size), :opt.embed_size] = embedding[:, :opt.embed_size]
+
             noise_ = (torch.from_numpy(noise_))
             with torch.no_grad():
                 noise.copy_(noise_.view(batch_size, nz, 1, 1))
@@ -252,19 +261,29 @@ def main(args=None):
             print('[%d/%d][%d/%d] Loss_D: %.4f (%.4f) Loss_G: %.4f (%.4f) D(x): %.4f D(G(z)): %.4f / %.4f Acc: %.4f (%.4f)'
                   % (epoch, opt.niter, i, len(train_dataloader),
                      errD.item(), avg_loss_D, errG.item(), avg_loss_G, D_x, D_G_z1, D_G_z2, accuracy, avg_loss_A))
-            if i % 100 == 0:
-                vutils.save_image(
-                    real_cpu, '%s/real_samples.png' % opt.outf, range=(-1,1), normalize=True)
+            if i == 0 and epoch % 5 == 0:
+                #vutils.save_image(
+                #    real_cpu, '%s/real_samples.png' % opt.outf, range=(-1,1), normalize=True)
                 #print('Label for eval = {}'.format(eval_label))
                 #fake = netG(eval_noise)
-                vutils.save_image(
-                    fake.data,
-                    '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch), range=(-1,1), normalize=True
+                real_numpy = real_cpu.cpu().detach().numpy()
+                fake_numpy = fake.cpu().detach().numpy()
+                num_imgs = real_numpy.shape[0]
+                img_grid = np.zeros((num_imgs, 3, opt.imsize, 2*opt.imsize))
+                img_grid[:,:,:,:32] = real_numpy
+                img_grid[:,:,:,32:] = fake_numpy
+                save_image_grid(img_grid, captions, 4, 4,
+                    '%s/fake_real_samples_epoch_%03d.png' % (opt.outf, epoch)
                 )
+                #vutils.save_image(
+                #    fake.data,
+                #    '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch), range=(-1,1), normalize=True
+                #)
 
         # do checkpointing
-        torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (opt.outf, epoch))
-        torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf, epoch))
+        if epoch % 5 == 0:
+            torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (opt.outf, epoch))
+            torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf, epoch))
 
 if __name__ == "__main__":
     main()

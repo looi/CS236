@@ -5,6 +5,7 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from models.infersent import InferSent
 import os.path
+#from transformers import BertModel, BertTokenizer
 
 
 class Embedder(nn.Module):

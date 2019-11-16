@@ -113,11 +113,11 @@ class TextDataset(data.Dataset):
         return filenames, captions
 
     def load_class_id(self, data_dir, total_num):
-        if os.path.isfile(data_dir + '/class_info.pickle'):
-            with open(data_dir + '/class_info.pickle', 'rb') as f:
-                class_id = pickle.load(f, encoding='bytes')
-        else:
-            class_id = np.arange(total_num)
+        with open(data_dir + '/class_info.pickle', 'rb') as f:
+            class_id = pickle.load(f, encoding='bytes')
+        # The class IDs are from 1 to 200 inclusive, convert to 0 to 199
+        class_id = [x-1 for x in class_id]
+        assert(all(0 <= x <= 199 for x in class_id))
         return class_id
 
     def load_filenames(self, data_dir, split):

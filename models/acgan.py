@@ -1,6 +1,20 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
+
+def do_sample(captions_embd, nz, device):
+    '''
+    :param captions_embd: torch.FloatTensor bsize * embd_size
+    :return: imgs : torch.FloatTensor of size n_imgs * c * h * w
+    '''
+    batch_size = captions_embd.shape[0]
+    embed_size = captions_embd.shape[1]
+    noise_ = np.random.normal(0, 1, (batch_size, nz))
+    noise_[np.arange(batch_size), :embed_size] = embedding[:, :embed_size]
+    noise = torch.Tensor(noise_, device=device)
+    fake = netG(noise)
+    return fake
 
 class _netG(nn.Module):
     def __init__(self, ngpu, nz):
@@ -9,7 +23,7 @@ class _netG(nn.Module):
         self.nz = nz
 
         # first linear layer
-        self.fc1 = nn.Linear(200, 768)
+        self.fc1 = nn.Linear(nz, 768)
         # Transposed Convolution 2
         self.tconv2 = nn.Sequential(
             nn.ConvTranspose2d(768, 384, 5, 2, 0, bias=False),
@@ -151,7 +165,7 @@ class _netG_CIFAR10(nn.Module):
         self.nz = nz
 
         # first linear layer
-        self.fc1 = nn.Linear(200, 384)
+        self.fc1 = nn.Linear(nz, 384)
         # Transposed Convolution 2
         self.tconv2 = nn.Sequential(
             nn.ConvTranspose2d(384, 192, 4, 1, 0, bias=False),
@@ -196,6 +210,13 @@ class _netG_CIFAR10(nn.Module):
             tconv5 = self.tconv5(tconv4)
             output = tconv5
         return output
+
+    def sample(self, captions_embd):
+        '''
+        :param captions_embd: torch.FloatTensor bsize * embd_size
+        :return: imgs : torch.FloatTensor of size n_imgs * c * h * w
+        '''
+        return do_sample(captions_embd, self.nz, self.fc1.device)
 
 
 class _netD_CIFAR10(nn.Module):

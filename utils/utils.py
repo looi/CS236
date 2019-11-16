@@ -35,19 +35,22 @@ def sample_image(model, encoder, output_image_dir, n_row, epoch, dataloader, dev
         if remaining <= 0: break
 
     gen_imgs = torch.cat(gen_imgs).numpy()
+    save_file = os.path.join(target_dir, "{}_{}_epoch_{}.png".format(conditioning, imsize, epoch))
+    save_image_grid(gen_imgs, captions, n_row, n_row, save_file)
+
+def save_image_grid(gen_imgs, captions, n_row, n_col, save_file):
     gen_imgs = (gen_imgs+1)/2 # from [-1,1] to [0,1]
     gen_imgs = np.clip(gen_imgs, 0, 1)
 
     fig = plt.figure(figsize=((8, 8)))
-    grid = ImageGrid(fig, 111, nrows_ncols=(n_row, n_row), axes_pad=1.0)#0.2)
+    grid = ImageGrid(fig, 111, nrows_ncols=(n_row, n_col), axes_pad=1.0)#0.2)
 
-    for i in range(n_row ** 2):
+    for i in range(min(len(captions), n_row*n_col)):
         grid[i].imshow(gen_imgs[i].transpose([1, 2, 0]))
         grid[i].set_title('\n'.join(textwrap.wrap(captions[i], width=30)))
         grid[i].title.set_fontsize(7)
         grid[i].tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=True)
 
-    save_file = os.path.join(target_dir, "{}_{}_epoch_{}.png".format(conditioning, imsize, epoch))
     plt.savefig(save_file)
     print("saved  {}".format(save_file))
     plt.close()
