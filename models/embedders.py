@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from models.infersent import InferSent
 import os.path
-#from transformers import BertModel, BertTokenizer
+import sys
 
 
 class Embedder(nn.Module):
@@ -25,8 +25,10 @@ class BERTEncoder(Embedder):
     def __init__(self, device):
         super(BERTEncoder, self).__init__(embed_size=768)
         self.pretrained_weights = 'bert-base-uncased'
-        self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_weights)
-        self.model = BertModel.from_pretrained(self.pretrained_weights)
+        if 'transformers' not in sys.modules:
+            import transformers
+        self.tokenizer = sys.modules['transformers'].BertTokenizer.from_pretrained(self.pretrained_weights)
+        self.model = sys.modules['transformers'].BertModel.from_pretrained(self.pretrained_weights)
         self.max_len = 50
         self.device = device
 
