@@ -1,4 +1,3 @@
-from nltk.tokenize import RegexpTokenizer
 from collections import defaultdict
 
 import torch

@@ -42,7 +42,7 @@ def save_image_grid(gen_imgs, captions, n_row, n_col, save_file):
     gen_imgs = (gen_imgs+1)/2 # from [-1,1] to [0,1]
     gen_imgs = np.clip(gen_imgs, 0, 1)
 
-    fig = plt.figure(figsize=((8, 8)))
+    fig = plt.figure(figsize=((15, 15)))
     grid = ImageGrid(fig, 111, nrows_ncols=(n_row, n_col), axes_pad=1.0)#0.2)
 
     for i in range(min(len(captions), n_row*n_col)):

@@ -50,7 +50,7 @@ class _netG(nn.Module):
         )
         # Transposed Convolution 5
         self.tconv6 = nn.Sequential(
-            nn.ConvTranspose2d(64, 3, 8, 2, 0, bias=False),
+            nn.ConvTranspose2d(64, 3, 8, 1, 2, bias=False),
             nn.Tanh(),
         )
 
@@ -125,9 +125,9 @@ class _netD(nn.Module):
             nn.Dropout(0.5, inplace=False),
         )
         # discriminator fc
-        self.fc_dis = nn.Linear(13*13*512, 1)
+        self.fc_dis = nn.Linear(5*5*512, 1)
         # aux-classifier fc
-        self.fc_aux = nn.Linear(13*13*512, num_classes)
+        self.fc_aux = nn.Linear(5*5*512, num_classes)
         # softmax and sigmoid
         self.softmax = nn.Softmax()
         self.sigmoid = nn.Sigmoid()
@@ -140,7 +140,7 @@ class _netD(nn.Module):
             conv4 = nn.parallel.data_parallel(self.conv4, conv3, range(self.ngpu))
             conv5 = nn.parallel.data_parallel(self.conv5, conv4, range(self.ngpu))
             conv6 = nn.parallel.data_parallel(self.conv6, conv5, range(self.ngpu))
-            flat6 = conv6.view(-1, 13*13*512)
+            flat6 = conv6.view(-1, 5*5*512)
             fc_dis = nn.parallel.data_parallel(self.fc_dis, flat6, range(self.ngpu))
             fc_aux = nn.parallel.data_parallel(self.fc_aux, flat6, range(self.ngpu))
         else:
@@ -150,7 +150,7 @@ class _netD(nn.Module):
             conv4 = self.conv4(conv3)
             conv5 = self.conv5(conv4)
             conv6 = self.conv6(conv5)
-            flat6 = conv6.view(-1, 13*13*512)
+            flat6 = conv6.view(-1, 5*5*512)
             fc_dis = self.fc_dis(flat6)
             fc_aux = self.fc_aux(flat6)
         classes = self.softmax(fc_aux)
