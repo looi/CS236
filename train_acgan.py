@@ -19,13 +19,13 @@ import torchvision.utils as vutils
 from torch.autograd import Variable
 from utils.utils import weights_init, compute_acc, save_image_grid
 from models.acgan import _netG, _netD, _netD_CIFAR10, _netG_CIFAR10
-from models.embedders import BERTEncoder, InferSentEmbedding, UnconditionalClassEmbedding
+from models.embedders import BERTEncoder, SentenceBERTEncoder, InferSentEmbedding, UnconditionalClassEmbedding
 from mpl_toolkits.axes_grid1 import ImageGrid
 import datasets
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str, default="birds", choices=["birds"])
-parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "infersent", "bert"])
+parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "infersent", "bert", "sentence-bert"])
 parser.add_argument("--batch_size", type=int, default=100, help="size of the batches")
 parser.add_argument("--imsize", type=int, default=64, help="Image size in pixels")
 parser.add_argument('--nz', type=int, default=200, help='size of the latent z vector (must be 100 larger than embedding size which is 200 for onehot and 4096 for infersent)')
@@ -147,6 +147,8 @@ def main(args=None):
     encoder = None
     if opt.conditioning == "bert":
         encoder = BERTEncoder(device)
+    elif opt.conditioning == "sentence-bert":
+        encoder = SentenceBERTEncoder(device)
     elif opt.conditioning == "infersent":
         encoder = InferSentEmbedding(device, opt.infersent_path)
 
