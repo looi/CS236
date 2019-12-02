@@ -253,7 +253,7 @@ def main(args=None):
             dis_output, aux_output = netD(fake)
             dis_errG = dis_criterion(dis_output, dis_label)
             aux_errG = aux_criterion(aux_output, aux_label)
-            errG = dis_errG + aux_errG
+            errG = dis_errG + aux_errG*10 # Given 10x weight to classification to make G better
             errG.backward()
             D_G_z2 = dis_output.data.mean()
             optimizerG.step()
