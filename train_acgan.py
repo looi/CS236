@@ -241,6 +241,7 @@ def main(args=None):
             errD_fake = dis_errD_fake + aux_errD_fake
             errD_fake.backward()
             D_G_z1 = dis_output.data.mean()
+            accuracy_fake = compute_acc(aux_output, aux_label)
             errD = errD_real + errD_fake
             optimizerD.step()
 
@@ -269,9 +270,9 @@ def main(args=None):
             avg_loss_D = all_loss_D / (curr_iter + 1)
             avg_loss_A = all_loss_A / (curr_iter + 1)
 
-            print('[Epoch %d][%d/%d] Loss_D: %.4f (%.4f) Loss_G: %.4f (%.4f) D(x): %.4f D(G(z)): %.4f / %.4f Acc: %.4f (%.4f)'
+            print('[Epoch %d][%d/%d] Loss_D: %.4f (%.4f) Loss_G: %.4f (%.4f) D(x): %.4f D(G(z)): %.4f / %.4f Acc: %.4f (%.4f) / %.4f'
                   % (epoch, i, len(train_dataloader),
-                     errD.item(), avg_loss_D, errG.item(), avg_loss_G, D_x, D_G_z1, D_G_z2, accuracy, avg_loss_A))
+                     errD.item(), avg_loss_D, errG.item(), avg_loss_G, D_x, D_G_z1, D_G_z2, accuracy, avg_loss_A, accuracy_fake))
             if i == 0 and epoch % 10 == 0:
                 #vutils.save_image(
                 #    real_cpu, '%s/real_samples.png' % opt.outf, range=(-1,1), normalize=True)
