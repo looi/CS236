@@ -22,51 +22,35 @@ class _netG(nn.Module):
         self.ngpu = ngpu
         self.nz = nz
 
-        # Add some FC layers
-        #self.fc1 = nn.Linear(nz, 768)
-        self.fc1 = nn.Sequential(
-            nn.Linear(nz, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.5, inplace=False),
-        )
-        self.fc2 = nn.Sequential(
-            nn.Linear(1024, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.5, inplace=False),
-        )
-        self.fc3 = nn.Sequential(
-            nn.Linear(1024, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.5, inplace=False),
-        )
-
-        # Transposed Convolution 2, output 512x4x4
+        # first linear layer
+        self.fc1 = nn.Linear(nz, 768)
+        # Transposed Convolution 2
         self.tconv2 = nn.Sequential(
-            nn.ConvTranspose2d(1024, 512, kernel_size=4, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(768, 384, 5, 2, 0, bias=False),
+            nn.BatchNorm2d(384),
+            nn.ReLU(True),
         )
-        # Transposed Convolution 3, output 256x8x8
+        # Transposed Convolution 3
         self.tconv3 = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(384, 256, 5, 2, 0, bias=False),
             nn.BatchNorm2d(256),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
         )
-        # Transposed Convolution 4, output 128x16x16
+        # Transposed Convolution 4
         self.tconv4 = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(256, 192, 5, 2, 0, bias=False),
+            nn.BatchNorm2d(192),
+            nn.ReLU(True),
         )
-        # Transposed Convolution 5, output 64x32x32
+        # Transposed Convolution 5
         self.tconv5 = nn.Sequential(
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(192, 64, 5, 2, 0, bias=False),
             nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
         )
-        # Transposed Convolution 5, output 3x64x64
+        # Transposed Convolution 5
         self.tconv6 = nn.Sequential(
-            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose2d(64, 3, 8, 1, 2, bias=False),
             nn.Tanh(),
         )
 
@@ -74,10 +58,8 @@ class _netG(nn.Module):
         if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
             input = input.view(-1, self.nz)
             fc1 = nn.parallel.data_parallel(self.fc1, input, range(self.ngpu))
-            fc2 = nn.parallel.data_parallel(self.fc2, fc1, range(self.ngpu))
-            fc3 = nn.parallel.data_parallel(self.fc3, fc2, range(self.ngpu))
-            fc3 = fc3.view(-1, 1024, 1, 1)
-            tconv2 = nn.parallel.data_parallel(self.tconv2, fc3, range(self.ngpu))
+            fc1 = fc1.view(-1, 768, 1, 1)
+            tconv2 = nn.parallel.data_parallel(self.tconv2, fc1, range(self.ngpu))
             tconv3 = nn.parallel.data_parallel(self.tconv3, tconv2, range(self.ngpu))
             tconv4 = nn.parallel.data_parallel(self.tconv4, tconv3, range(self.ngpu))
             tconv5 = nn.parallel.data_parallel(self.tconv5, tconv4, range(self.ngpu))
@@ -86,10 +68,8 @@ class _netG(nn.Module):
         else:
             input = input.view(-1, self.nz)
             fc1 = self.fc1(input)
-            fc2 = self.fc2(fc1)
-            fc3 = self.fc3(fc2)
-            fc3 = fc3.view(-1, 1024, 1, 1)
-            tconv2 = self.tconv2(fc3)
+            fc1 = fc1.view(-1, 768, 1, 1)
+            tconv2 = self.tconv2(fc1)
             tconv3 = self.tconv3(tconv2)
             tconv4 = self.tconv4(tconv3)
             tconv5 = self.tconv5(tconv4)
