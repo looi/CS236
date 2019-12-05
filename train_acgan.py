@@ -42,6 +42,11 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--num_classes', type=int, default=200, help='Number of classes for AC-GAN')
 parser.add_argument('--gpu_id', type=int, default=0, help='The ID of the specified GPU')
 parser.add_argument("--infersent_path", type=str, default='encoder', help="Path to pre-trained InferSent model")
+parser.add_argument("--gen_only", action='store_true', help="Only generate images, do not train")
+parser.add_argument("--force_caption", type=str, default=None, help="Caption to force (intended for gen_only)")
+parser.add_argument("--force_class", type=int, default=None, help="Class to force (intended for gen_only)")
+parser.add_argument("--gen_num", type=int, default=None, help="Number to append to filename (intended for gen_only)")
+parser.add_argument("--gen_only2", action='store_true', help="Only generate images, do not train")
 
 def main(args=None):
     opt = parser.parse_args(args)
@@ -73,8 +78,8 @@ def main(args=None):
     print("loading dataset")
     class_names = [x.split()[1] for x in open('data/birds/CUB_200_2011/classes.txt')]
     if opt.dataset == 'birds':
-        train_dataset = datasets.TextDataset('data/birds', 'train', imsize=opt.imsize)
-        val_dataset = datasets.TextDataset('data/birds', 'test', imsize=opt.imsize)
+        train_dataset = datasets.TextDataset('data/birds', 'train', imsize=opt.imsize, force_caption=opt.force_caption, force_class=opt.force_class)
+        #val_dataset = datasets.TextDataset('data/birds', 'test', imsize=opt.imsize, force_caption=opt.force_caption, force_class=opt.force_class)
     else:
         raise NotImplementedError("No such dataset {}".format(opt.dataset))
 
@@ -84,13 +89,14 @@ def main(args=None):
         batch_size=opt.batch_size,
         shuffle=True,
     )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=opt.batch_size,
-        shuffle=True,
-    )
+    #val_dataloader = torch.utils.data.DataLoader(
+    #    val_dataset,
+    #    batch_size=opt.batch_size,
+    #    shuffle=True,
+    #)
 
-    print("Len train : {}, val : {}".format(len(train_dataloader), len(val_dataloader)))
+    print("Len train : {}".format(len(train_dataloader)))
+    #print("Len val : {}".format(len(val_dataloader)))
 
     # some hyper parameters
     ngpu = int(opt.ngpu)
@@ -106,6 +112,8 @@ def main(args=None):
     if opt.model_checkpoint_epoch is not None:
         netG.load_state_dict(torch.load('%s/netG_epoch_%d.pth' % (opt.outf, opt.model_checkpoint_epoch)))
     print(netG)
+    #if opt.gen_only:
+    #    netG.eval() # This doesn't seem to work well. Need random batch
 
     # Define the discriminator and initialize the weights
     netD = _netD(ngpu, num_classes)
@@ -273,7 +281,11 @@ def main(args=None):
             print('[Epoch %d][%d/%d] Loss_D: %.4f (%.4f) Loss_G: %.4f (%.4f) D(x): %.4f D(G(z)): %.4f / %.4f Acc: %.4f (%.4f) / %.4f'
                   % (epoch, i, len(train_dataloader),
                      errD.item(), avg_loss_D, errG.item(), avg_loss_G, D_x, D_G_z1, D_G_z2, accuracy, avg_loss_A, accuracy_fake))
-            if i == 0 and epoch % 10 == 0:
+            if opt.gen_only2:
+                for mi in range(num_imgs):
+                    vutils.save_image(fake[mi,:].data, 'outputs/genonly/genonly_all_%s_%03d.png' % (outf, opt.conditioning, mi), range=(-1,1), normalize=True)
+                    return
+            if (i == 0 and epoch % 10 == 0) or opt.gen_only:
                 #vutils.save_image(
                 #    real_cpu, '%s/real_samples.png' % opt.outf, range=(-1,1), normalize=True)
                 #print('Label for eval = {}'.format(eval_label))
@@ -285,9 +297,20 @@ def main(args=None):
                 img_grid[:,:,:,:opt.imsize] = real_numpy
                 img_grid[:,:,:,opt.imsize:] = fake_numpy
                 grid_captions = ['%s: %s' % (class_names[cls_ids[i]], captions[i]) for i in range(len(captions))]
+                file_basename = 'fake_real_samples'
+                outf = opt.outf
+                if opt.gen_only:
+                    myval = opt.force_class #hash(opt.force_caption) % 1000
+                    outf = 'outputs/genonly'
+                    file_basename = 'genonly_%s_%s' % (myval, opt.conditioning)
+                    if opt.gen_num is not None:
+                        file_basename += '_%s' % opt.gen_num
                 save_image_grid(img_grid, grid_captions, 4, 4,
-                    '%s/fake_real_samples_epoch_%03d.png' % (opt.outf, epoch)
+                    '%s/%s_epoch_%03d.png' % (outf, file_basename, epoch)
                 )
+                if opt.gen_only:
+                    vutils.save_image(fake[0,:].data, '%s/genonly_%s_%s_%s.png' % (outf, myval, opt.conditioning, opt.gen_num), range=(-1,1), normalize=True)
+                    return
                 #vutils.save_image(
                 #    fake.data,
                 #    '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch), range=(-1,1), normalize=True

@@ -35,7 +35,8 @@ class TextDataset(data.Dataset):
     def __init__(self, data_dir, split='train',
                  imsize=64,
                  captions_per_image=10,
-                 transform=None, target_transform=None):
+                 transform=None, target_transform=None,
+                 force_caption=None, force_class=None):
         self.transform = transform
         self.target_transform = target_transform
         self.captions_per_image = captions_per_image
@@ -49,7 +50,38 @@ class TextDataset(data.Dataset):
 
         self.filenames, self.captions = self.load_text_data(data_dir, split)
 
-        self.class_id = self.load_class_id(split_dir, len(self.filenames))
+        self.class_id = self.load_class_id(split_dir)
+        #if force_caption is not None:
+        #    assert len(self.captions) == len(self.filenames)*self.captions_per_image
+        #    assert len(self.class_id) == len(self.filenames)
+        #    keep = [False]*len(self.filenames)
+        #    for i, x in enumerate(self.captions):
+        #        j = i // self.captions_per_image
+        #        if x == force_caption and self.filenames[j].startswith('%03d.' % force_class):
+        #            keep[j] = True
+        #    new_captions = []
+        #    new_filenames = []
+        #    new_class_id = []
+        #    for i in range(len(self.filenames)):
+        #        if not keep[i]: continue
+        #        new_filenames.append(self.filenames[i])
+        #        new_class_id.append(self.class_id[i])
+        #        for j in range(self.captions_per_image):
+        #            new_captions.append(force_caption)
+        #    while len(new_filenames) < 16:
+        #        new_filenames += new_filenames
+        #        new_captions += new_captions
+        #        new_class_id += new_class_id
+        #    self.captions = new_captions
+        #    self.filenames = new_filenames
+        #    self.class_id = new_class_id
+        self.force_index = None
+        if force_caption is not None:
+            for i, x in enumerate(self.captions):
+                j = i // self.captions_per_image
+                if x == force_caption and self.filenames[j].startswith('%03d.' % force_class):
+                    self.force_index = j
+                    break
         self.number_example = len(self.filenames)
 
     def load_bbox(self):
@@ -111,7 +143,7 @@ class TextDataset(data.Dataset):
             filenames = test_names
         return filenames, captions
 
-    def load_class_id(self, data_dir, total_num):
+    def load_class_id(self, data_dir):
         with open(data_dir + '/class_info.pickle', 'rb') as f:
             class_id = pickle.load(f, encoding='bytes')
         # The class IDs are from 1 to 200 inclusive, convert to 0 to 199
@@ -130,6 +162,9 @@ class TextDataset(data.Dataset):
         return filenames
 
     def __getitem__(self, index):
+        if self.force_index is not None:
+            index = self.force_index
+            self.force_index = None
         #
         key = self.filenames[index]
         cls_id = self.class_id[index]
