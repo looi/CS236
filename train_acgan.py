@@ -47,6 +47,7 @@ parser.add_argument("--force_caption", type=str, default=None, help="Caption to 
 parser.add_argument("--force_class", type=int, default=None, help="Class to force (intended for gen_only)")
 parser.add_argument("--gen_num", type=int, default=None, help="Number to append to filename (intended for gen_only)")
 parser.add_argument("--gen_only2", action='store_true', help="Only generate images, do not train")
+parser.add_argument("--gen_dir", type=str, default='outputs/genonly', help="Directory for gen images")
 
 def main(args=None):
     opt = parser.parse_args(args)
@@ -282,9 +283,11 @@ def main(args=None):
                   % (epoch, i, len(train_dataloader),
                      errD.item(), avg_loss_D, errG.item(), avg_loss_G, D_x, D_G_z1, D_G_z2, accuracy, avg_loss_A, accuracy_fake))
             if opt.gen_only2:
-                for mi in range(num_imgs):
-                    vutils.save_image(fake[mi,:].data, 'outputs/genonly/genonly_all_%s_%03d.png' % (outf, opt.conditioning, mi), range=(-1,1), normalize=True)
-                    return
+                for mi in range(fake.shape[0]):
+                    vutils.save_image(fake[mi,:].data, '%s/genonly_all_%s_%03d.png' % (opt.gen_dir, opt.conditioning, mi), range=(-1,1), normalize=True)
+                #for mi in range(real_cpu.shape[0]):
+                #    vutils.save_image(real_cpu[mi,:].data, '%s/genonly_real_%03d.png' % (opt.gen_dir, mi), range=(-1,1), normalize=True)
+                return
             if (i == 0 and epoch % 10 == 0) or opt.gen_only:
                 #vutils.save_image(
                 #    real_cpu, '%s/real_samples.png' % opt.outf, range=(-1,1), normalize=True)
@@ -301,7 +304,7 @@ def main(args=None):
                 outf = opt.outf
                 if opt.gen_only:
                     myval = opt.force_class #hash(opt.force_caption) % 1000
-                    outf = 'outputs/genonly'
+                    outf = opt.gen_dir
                     file_basename = 'genonly_%s_%s' % (myval, opt.conditioning)
                     if opt.gen_num is not None:
                         file_basename += '_%s' % opt.gen_num
