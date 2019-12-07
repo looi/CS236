@@ -19,7 +19,6 @@ parser.add_argument("--batch_size", type=int, default=16, help="size of the batc
 parser.add_argument("--lr", type=float, default=0.0001, help="adam: learning rate")
 parser.add_argument('--lr_decay', type=float, default=1.0,
                     help='Learning rate decay, applied every step of the optimization')
-parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--n_resnet", type=int, default=5, help="number of layers for the pixelcnn model")
 parser.add_argument("--n_filters", type=int, default=80, help="dimensionality of the latent space")
 parser.add_argument("--use_cuda", type=int, default=1, help="use cuda if available")

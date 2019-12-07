@@ -102,7 +102,7 @@ class DataGenerator_encode(object):
         return self
 
     def __next__(self):
-        img256_ar = np.empty((0, self.imsize[2], self.imsize[2], 3))
+        img_ar = np.empty((0, self.imsize[-1], self.imsize[-1], 3))
         captions_ar = np.empty((0, cfg.TEXT.WORDS_NUM, 1))
         for _ in range(self.batchsize):
             imgs, captions, cap_lens, class_ids, keys = self.dataset[
@@ -110,10 +110,10 @@ class DataGenerator_encode(object):
             self.count += 1
             if self.count == self.maxcount:
                 self.count = 0
-            img256_ar = np.vstack((img256_ar, imgs[2][np.newaxis, :]))
+            img_ar = np.vstack((img_ar, imgs[-1][np.newaxis, :]))
             captions_ar = np.vstack((captions_ar, captions[np.newaxis, :]))
 
-        img256_ar = img256_ar.astype("f")
+        img_ar = img_ar.astype("f")
         y_captions_ar = np.concatenate([
             captions_ar,
             np.zeros((captions_ar.shape[0], 1, captions_ar.shape[2]))
@@ -127,4 +127,4 @@ class DataGenerator_encode(object):
             for i in range(y_captions_ar.shape[1]):
                 ind = y_captions_ar[j, i, 0].astype("int")
                 y[j, i, ind] = 1
-        return [img256_ar, captions_ar], y
+        return [img_ar, captions_ar], y

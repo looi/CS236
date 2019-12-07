@@ -15,6 +15,17 @@ from keras.layers.embeddings import Embedding
 from keras.applications.inception_v3 import InceptionV3
 from config import cfg
 
+from pytorch_pretrained_bert import BertTokenizer
+from pytorch_pretrained_bert.modeling import BertModel
+
+def get_bert_embed_matrix():
+    bert = BertModel.from_pretrained('bert-base-uncased')
+    bert_embeddings = list(bert.children())[0]
+    bert_word_embeddings = list(bert_embeddings.children())[0]
+    mat = bert_word_embeddings.weight.data.numpy()
+    return mat
+
+EMBEDDING_MATRIX = get_bert_embed_matrix()
 
 class GLU(Layer):
     def __init__(self):
@@ -99,7 +110,8 @@ def RNN_ENCODER(emb_size,
     c_dim = cfg.GAN.CONDITION_DIM
 
     cap_input = Input(shape=(cfg.TEXT.WORDS_NUM, ), name="caption_input")
-    embeddings = Embedding(vocab_size, emb_size)(cap_input)
+#     embeddings = Embedding(vocab_size, emb_size)(cap_input)
+    embeddings = Embedding(*EMBEDDING_MATRIX.shape, weights=[EMBEDDING_MATRIX], trainable=True)(cap_input)
     drop = Dropout(drop_prob)(embeddings)
     if rec_unit == 'gru':
         words_emb, forward_h, backward_h = Bidirectional(__rec_units[rec_unit](
@@ -376,7 +388,7 @@ def D_GET_LOGITS(ndf, nef, h_code, sent_emb):
 def D_NET64(sent_emb):
     ndf = cfg.GAN.DF_DIM
     nef = cfg.TEXT.EMBEDDING_DIM
-    D_pic_input = Input((64, 64, 3), name="D_pic_input64")
+    D_pic_input = Input((cfg.TREE.BASE_SIZE, cfg.TREE.BASE_SIZE, 3), name="D_pic_input64")
     x_code4 = encode_image_by_16times(ndf)(D_pic_input)  # 4 x 4 x 8df
     h_logits, h_c_logits = D_GET_LOGITS(ndf, nef, x_code4, sent_emb)
     return h_logits, h_c_logits, D_pic_input
@@ -386,7 +398,7 @@ def D_NET64(sent_emb):
 def D_NET128(sent_emb):
     ndf = cfg.GAN.DF_DIM
     nef = cfg.TEXT.EMBEDDING_DIM
-    D_pic_input = Input((128, 128, 3), name="D_pic_input128")
+    D_pic_input = Input((2 * cfg.TREE.BASE_SIZE, 2 * cfg.TREE.BASE_SIZE, 3), name="D_pic_input128")
     x_code8 = encode_image_by_16times(ndf)(D_pic_input)  # 8 x 8 x 8df
     x_code4 = downBlock(ndf * 16)(x_code8)  # 4 x 4 x 16df
     x_code4 = Block3x3_leakRelu(ndf * 8)(x_code4)  # 4 x 4 x 8df
@@ -398,7 +410,7 @@ def D_NET128(sent_emb):
 def D_NET256(sent_emb):
     ndf = cfg.GAN.DF_DIM
     nef = cfg.TEXT.EMBEDDING_DIM
-    D_pic_input = Input((256, 256, 3), name="D_pic_input256")
+    D_pic_input = Input((4 * cfg.TREE.BASE_SIZE, 4 * cfg.TREE.BASE_SIZE, 3), name="D_pic_input256")
     x_code16 = encode_image_by_16times(ndf)(D_pic_input)  # 16 x 16 x 8df
     x_code8 = downBlock(ndf * 16)(x_code16)  # 8 x 8 x 16df
     x_code4 = downBlock(ndf * 32)(x_code8)  # 4 x 4 x 32df

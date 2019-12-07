@@ -5,6 +5,8 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from models.infersent import InferSent
 import os.path
+import sys
+import torch
 
 
 class Embedder(nn.Module):
@@ -24,8 +26,10 @@ class BERTEncoder(Embedder):
     def __init__(self, device):
         super(BERTEncoder, self).__init__(embed_size=768)
         self.pretrained_weights = 'bert-base-uncased'
-        self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_weights)
-        self.model = BertModel.from_pretrained(self.pretrained_weights)
+        if 'transformers' not in sys.modules:
+            import transformers
+        self.tokenizer = sys.modules['transformers'].BertTokenizer.from_pretrained(self.pretrained_weights)
+        self.model = sys.modules['transformers'].BertModel.from_pretrained(self.pretrained_weights).to(device)
         self.max_len = 50
         self.device = device
 
@@ -45,6 +49,26 @@ class BERTEncoder(Embedder):
         padded_input = self.tokenize(captions).to(self.device)
         # takes the mean of the last hidden states computed by the pre-trained BERT encoder and return it
         return self.model(padded_input)[0].mean(dim=1)
+
+
+class SentenceBERTEncoder(Embedder):
+    '''
+    pretrained model used to embed text to a 768 dimensional vector
+    '''
+
+    def __init__(self, device):
+        super(SentenceBERTEncoder, self).__init__(embed_size=768)
+        if 'sentence_transformers' not in sys.modules:
+            import sentence_transformers
+        self.model = sys.modules['sentence_transformers'].SentenceTransformer('bert-base-nli-mean-tokens').to(device)
+        self.device = device
+
+    def forward(self, captions):
+        '''
+        :param list captions: list of strings, sentences to embed
+        :return: torch.tensor embeddings: embeddings of shape (batch_size,embed_size)
+        '''
+        return torch.tensor(self.model.encode(captions), device=self.device)
 
 
 class UnconditionalClassEmbedding(Embedder):

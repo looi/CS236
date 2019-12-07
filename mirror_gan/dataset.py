@@ -13,7 +13,8 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 
 from config import cfg
-
+from pytorch_pretrained_bert import BertTokenizer
+TOKENIZER = BertTokenizer.from_pretrained('bert-base-uncased')
 
 def get_imgs(img_path, imsize, bbox=None, transform=None, normalize=None):
     img = Image.open(img_path).convert('RGB')
@@ -121,8 +122,9 @@ class TextDataset(data.Dataset):
                     cap = cap.replace("\ufffd\ufffd", " ")
                     # picks out sequences of alphanumeric characters as tokens
                     # and drops everything else
-                    tokenizer = RegexpTokenizer(r'\w+')
-                    tokens = tokenizer.tokenize(cap.lower())
+                    # tokenizer = RegexpTokenizer(r'\w+')
+                    cap = ''.join(ch for ch in cap if ch.isalnum())
+                    tokens = TOKENIZER.tokenize(cap.lower())
                     # print('tokens', tokens)
                     if len(tokens) == 0:
                         print('cap', cap)
@@ -143,63 +145,68 @@ class TextDataset(data.Dataset):
         return all_captions
 
     def build_dictionary(self, train_captions, test_captions):
-        word_counts = defaultdict(float)
-        captions = train_captions + test_captions
-        for sent in captions:
-            for word in sent:
-                word_counts[word] += 1
+        # word_counts = defaultdict(float)
+        # captions = train_captions + test_captions
+        # for sent in captions:
+        #     for word in sent:
+        #         word_counts[word] += 1
 
-        vocab = [w for w in word_counts if word_counts[w] >= 0]
+        # vocab = [w for w in word_counts if word_counts[w] >= 0]
 
-        ixtoword = {}
-        ixtoword[0] = '<end>'
-        wordtoix = {}
-        wordtoix['<end>'] = 0
-        ix = 1
-        for w in vocab:
-            wordtoix[w] = ix
-            ixtoword[ix] = w
-            ix += 1
+        # ixtoword = {}
+        # ixtoword[0] = '<end>'
+        # wordtoix = {}
+        # wordtoix['<end>'] = 0
+        # ix = 1
+        # for w in vocab:
+        #     wordtoix[w] = ix
+        #     ixtoword[ix] = w
+        #     ix += 1
 
         train_captions_new = []
         for t in train_captions:
-            rev = []
-            for w in t:
-                if w in wordtoix:
-                    rev.append(wordtoix[w])
+            # rev = []
+            # for w in t:
+            #     if w in wordtoix:
+            #         rev.append(wordtoix[w])
             # rev.append(0)  # do not need '<end>' token
-            train_captions_new.append(rev)
+            indexed_tokens = TOKENIZER.convert_tokens_to_ids(t)
+            train_captions_new.append(indexed_tokens)
 
         test_captions_new = []
         for t in test_captions:
-            rev = []
-            for w in t:
-                if w in wordtoix:
-                    rev.append(wordtoix[w])
+            # rev = []
+            # for w in t:
+            #     if w in wordtoix:
+            #         rev.append(wordtoix[w])
             # rev.append(0)  # do not need '<end>' token
-            test_captions_new.append(rev)
+            indexed_tokens = TOKENIZER.convert_tokens_to_ids(t)
+            test_captions_new.append(indexed_tokens)
+
+        ixtoword, wordtoix = None, None
+        n_words = 30522
 
         return [
             train_captions_new, test_captions_new, ixtoword, wordtoix,
-            len(ixtoword)
+            n_words
         ]
 
-    def load_text_data(self, data_dir, split):
+    def load_text_data(self, data_dir, split, load=False):
         filepath = os.path.join(data_dir, 'captions.pickle')
         train_names = self.load_filenames(data_dir, 'train')
         test_names = self.load_filenames(data_dir, 'test')
-        if not os.path.isfile(filepath):
+        if not os.path.isfile(filepath) or not load:
             train_captions = self.load_captions(data_dir, train_names)
             test_captions = self.load_captions(data_dir, test_names)
 
             train_captions, test_captions, ixtoword, wordtoix, n_words = \
                 self.build_dictionary(train_captions, test_captions)
-            with open(filepath, 'wb') as f:
-                pickle.dump(
-                    [train_captions, test_captions, ixtoword, wordtoix],
-                    f,
-                    protocol=2)
-                print('Save to: ', filepath)
+            # with open(filepath, 'wb') as f:
+            #     pickle.dump(
+            #         [train_captions, test_captions, ixtoword, wordtoix],
+            #         f,
+            #         protocol=2)
+            #     print('Save to: ', filepath)
         else:
             with open(filepath, 'rb') as f:
                 x = pickle.load(f)
