@@ -142,10 +142,10 @@ def main():
             "G_loss:  {:.5f} G_discriminator_loss:  {:.5f} G_encoder_loss:  {:.5f}"
             .format(G_loss, G_des_loss, G_enc_loss))
 
-        if epoch % 4 == 0:
-            G_save_path = "model/G_epoch{}.h5".format(epoch)
+        if epoch % 5 == 0:
+            G_save_path = "model/G_bert_epoch{}.h5".format(epoch + 330)
             G_model.save_weights(G_save_path)
-            D_save_path = "model/D_epoch{}.h5".format(epoch)
+            D_save_path = "model/D_bert_epoch{}.h5".format(epoch + 330)
             D_model.save_weights(D_save_path)
 
         #Save image
@@ -169,7 +169,7 @@ def sample_images(epoch, noise, eps, cap_pd, mask, G_model):
             axs[i, j].imshow(gen_imgs[cnt])
             axs[i, j].axis('off')
             cnt += 1
-    fig.savefig("gan_img/%d.png" % epoch)
+    fig.savefig("gan_img_v4/%d.png" % (epoch + 330))
     plt.close()
 
 
